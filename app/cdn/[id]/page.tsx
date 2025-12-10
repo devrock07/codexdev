@@ -22,21 +22,31 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     }
 
     // Use download endpoint URL for Discord embeds
-    const fileUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/files/${id}/download`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const fileUrl = `${baseUrl}/api/files/${id}/download`;
+    const pageUrl = `${baseUrl}/cdn/${id}`;
 
     return {
         title: `${file.originalName} - Codex CDN`,
-        description: `Download ${file.originalName} from Codex CDN - ${(file.fileSize / 1024).toFixed(1)}KB`,
+        description: `${file.fileType === 'image' ? 'View image' : 'Download file'} from Codex CDN - ${(file.fileSize / 1024).toFixed(1)}KB`,
         openGraph: {
             title: file.originalName,
-            description: `Download from Codex CDN - ${(file.fileSize / 1024).toFixed(1)}KB`,
-            images: file.fileType === 'image' ? [fileUrl] : [],
+            description: `${file.fileType === 'image' ? 'View image' : 'Download file'} from Codex CDN`,
+            url: pageUrl,
+            images: file.fileType === 'image' ? [
+                {
+                    url: fileUrl,
+                    width: 1200,
+                    height: 630,
+                    alt: file.originalName,
+                }
+            ] : [],
             type: 'website',
         },
         twitter: {
             card: file.fileType === 'image' ? 'summary_large_image' : 'summary',
             title: file.originalName,
-            description: `Download from Codex CDN - ${(file.fileSize / 1024).toFixed(1)}KB`,
+            description: `${file.fileType === 'image' ? 'View image' : 'Download file'} from Codex CDN`,
             images: file.fileType === 'image' ? [fileUrl] : [],
         },
     };
