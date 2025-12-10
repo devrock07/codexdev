@@ -5,8 +5,8 @@ import './globals.css';
 const outfit = Outfit({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Codex ',
-  description: 'A premium code sharing platform for developers',
+  title: 'Codexdev ',
+  description: 'codex is love',
 };
 
 export default function RootLayout({
