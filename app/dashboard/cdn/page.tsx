@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useUploadThing } from '@/lib/uploadthing';
 
 export default function CDNDashboard() {
     const [files, setFiles] = useState<any[]>([]);
@@ -10,9 +9,6 @@ export default function CDNDashboard() {
     const [uploading, setUploading] = useState(false);
     const [filter, setFilter] = useState<'all' | 'image' | 'zip'>('all');
     const [copiedId, setCopiedId] = useState<string | null>(null);
-
-    const { startUpload: startImageUpload } = useUploadThing("imageUploader");
-    const { startUpload: startZipUpload } = useUploadThing("zipUploader");
 
     useEffect(() => {
         fetchFiles();
@@ -39,38 +35,39 @@ export default function CDNDashboard() {
         setUploading(true);
         try {
             const file = selectedFiles[0];
-            const fileType = file.type.startsWith('image/') ? 'image' : 'zip';
 
-            // Upload to Uploadthing
-            const uploadFn = fileType === 'image' ? startImageUpload : startZipUpload;
-            const uploadedFiles = await uploadFn([file]);
-
-            if (uploadedFiles && uploadedFiles.length > 0) {
-                const uploadedFile = uploadedFiles[0];
-
-                // Save to database
-                await fetch('/api/files', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        filename: uploadedFile.key,
-                        originalName: file.name,
-                        fileUrl: uploadedFile.url,
-                        fileType,
-                        mimeType: file.type,
-                        fileSize: file.size,
-                        thumbnailUrl: fileType === 'image' ? uploadedFile.url : ''
-                    })
-                });
-
-                // Refresh file list
-                fetchFiles();
+            // Check file size (max 5MB for base64 storage)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File too large. Maximum size is 5MB.');
+                setUploading(false);
+                return;
             }
+
+            // Upload file
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadRes = await fetch('/api/uploadthing', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadRes.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const uploadData = await uploadRes.json();
+
+            // Refresh file list
+            fetchFiles();
+            alert('File uploaded successfully!');
         } catch (error) {
             console.error('Upload failed:', error);
             alert('Upload failed. Please try again.');
         } finally {
             setUploading(false);
+            // Reset input
+            e.target.value = '';
         }
     };
 
