@@ -6,6 +6,7 @@ export interface ISnippet extends Document {
     code: string;
     language: string;
     tags: string[];
+    downloadUrl?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -17,6 +18,7 @@ const SnippetSchema: Schema = new Schema(
         code: { type: String, required: true },
         language: { type: String, default: 'javascript' },
         tags: { type: [String], default: [] },
+        downloadUrl: { type: String, default: '' },
     },
     { timestamps: true }
 );
