@@ -46,17 +46,9 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// DELETE: Delete file (staff only)
+// DELETE: Delete file
 export async function DELETE(request: NextRequest) {
     try {
-        // Check authentication
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth-token');
-
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         await dbConnect();
 
         const { searchParams } = new URL(request.url);
@@ -66,11 +58,18 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'File ID required' }, { status: 400 });
         }
 
-        await File.findByIdAndDelete(id);
+        const result = await File.findByIdAndDelete(id);
+
+        if (!result) {
+            return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
 
         return NextResponse.json({ message: 'File deleted successfully' }, { status: 200 });
     } catch (error) {
         console.error('Error deleting file:', error);
-        return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
+        return NextResponse.json({
+            error: 'Failed to delete file',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 });
     }
 }
