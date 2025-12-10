@@ -17,7 +17,7 @@ export default async function Home() {
   try {
     snippets = await getRecentSnippets();
   } catch (error) {
-    console.error("Failed to fetch snippets:", error);
+    console.error("Failed to fetch codes:", error);
   }
 
   return (
@@ -36,11 +36,11 @@ export default async function Home() {
       <section className="container" style={{ textAlign: 'center', padding: '4rem 0', flex: 1 }}>
         <h1 style={{ fontSize: '4rem', marginBottom: '1rem', lineHeight: 1.1 }}>
           Codex Dev <br />
-          <span className="gradient-text">average devs.</span>
+          <span className="gradient-text">average coders.</span>
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>
-          The premium repository for your team's most valuable code snippets.
-          Accessible, searchable, and always ready.
+          Your premium gateway to legendary source code.
+          Search, explore and just pure value.
         </p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <Link href="/browse" className="btn-primary">Browse Library</Link>
@@ -50,7 +50,7 @@ export default async function Home() {
 
       {/* Grid Section */}
       <section className="container" style={{ paddingBottom: '4rem' }}>
-        <h2 style={{ marginBottom: '2rem', fontSize: '2rem' }}>Latest Snippets</h2>
+        <h2 style={{ marginBottom: '2rem', fontSize: '2rem' }}>Latest Codes</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
 
           {snippets.length === 0 ? (
