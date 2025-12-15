@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -8,38 +8,96 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [status, setStatus] = useState('idle'); // idle, loading, success
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [lockoutTime, setLockoutTime] = useState<number | null>(null);
+    const [remainingSeconds, setRemainingSeconds] = useState(0);
     const router = useRouter();
+
+    useEffect(() => {
+        if (lockoutTime) {
+            const interval = setInterval(() => {
+                const remaining = Math.ceil((lockoutTime - Date.now()) / 1000);
+                if (remaining <= 0) {
+                    setLockoutTime(null);
+                    setFailedAttempts(0);
+                    setRemainingSeconds(0);
+                } else {
+                    setRemainingSeconds(remaining);
+                }
+            }, 100);
+            return () => clearInterval(interval);
+        }
+    }, [lockoutTime]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (lockoutTime && Date.now() < lockoutTime) {
+            setError(`Too many attempts. Locked for ${remainingSeconds}s`);
+            return;
+        }
+
+        if (username.length < 3 || password.length < 8) {
+            setError('Invalid credentials format');
+            return;
+        }
+
         setError('');
         setStatus('loading');
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
 
         try {
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({ username, password }),
+                signal: controller.signal,
+                credentials: 'same-origin'
             });
 
+            clearTimeout(timeout);
             const data = await res.json();
 
             if (res.ok) {
                 setStatus('success');
+                setFailedAttempts(0);
                 // Allow success animation to play
                 setTimeout(() => {
                     router.push('/dashboard');
                 }, 800);
             } else {
+                const newFailedAttempts = failedAttempts + 1;
+                setFailedAttempts(newFailedAttempts);
                 setStatus('idle');
-                setError(data.error || 'Access Denied');
+                
+                if (newFailedAttempts >= 5) {
+                    const lockoutDuration = Math.min(30000 * Math.pow(2, newFailedAttempts - 5), 300000);
+                    setLockoutTime(Date.now() + lockoutDuration);
+                    setError(`Account locked. Try again in ${Math.ceil(lockoutDuration / 1000)}s`);
+                } else {
+                    setError(data.error || 'Access Denied');
+                }
                 // Trigger shake animation logic if we had it, for now just text
+                setUsername('');
+                setPassword('');
             }
-        } catch (err) {
+        } catch (err: any) {
+            clearTimeout(timeout);
             setStatus('idle');
-            setError('Connection Error');
+            if (err.name === 'AbortError') {
+                setError('Request timeout');
+            } else {
+                setError('Connection Error');
+            }
         }
     };
+
+    const isLocked = lockoutTime && Date.now() < lockoutTime;
 
     return (
         <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at center, #1e293b 0%, #000000 100%)' }}>
@@ -69,17 +127,26 @@ export default function LoginPage() {
                     </div>
                 )}
 
+                {failedAttempts > 0 && !isLocked && (
+                    <div style={{ background: 'rgba(251, 191, 36, 0.1)', color: '#fbbf24', padding: '0.5rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid rgba(251, 191, 36, 0.2)', fontSize: '0.8rem', textAlign: 'center' }}>
+                        Warning: {failedAttempts}/5 failed attempts
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     <div style={{ position: 'relative' }}>
                         <input
                             type="text"
                             value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
                             className="glass-card"
                             style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', color: 'white', background: 'rgba(0,0,0,0.3)', outline: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', transition: 'all 0.2s' }}
                             placeholder="Operator ID"
+                            maxLength={32}
+                            minLength={3}
                             required
-                            disabled={status === 'loading'}
+                            disabled={status === 'loading' || isLocked}
+                            autoComplete="off"
                         />
                         <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>@</span>
                     </div>
@@ -92,31 +159,34 @@ export default function LoginPage() {
                             className="glass-card"
                             style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', color: 'white', background: 'rgba(0,0,0,0.3)', outline: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', transition: 'all 0.2s' }}
                             placeholder="Access Key"
+                            minLength={8}
+                            maxLength={128}
                             required
-                            disabled={status === 'loading'}
+                            disabled={status === 'loading' || isLocked}
+                            autoComplete="off"
                         />
                         <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '1rem' }}>⚿</span>
                     </div>
 
                     <button
                         type="submit"
-                        disabled={status === 'loading' || status === 'success'}
+                        disabled={status === 'loading' || status === 'success' || isLocked}
                         style={{
                             marginTop: '1rem',
-                            background: status === 'success' ? '#10b981' : 'var(--accent-primary)',
+                            background: status === 'success' ? '#10b981' : (isLocked ? '#6b7280' : 'var(--accent-primary)'),
                             color: 'white',
                             border: 'none',
                             padding: '1rem',
                             borderRadius: '8px',
                             fontWeight: 600,
-                            cursor: status === 'loading' ? 'wait' : 'pointer',
+                            cursor: (status === 'loading' || isLocked) ? 'not-allowed' : 'pointer',
                             transition: 'all 0.3s',
-                            opacity: status === 'loading' ? 0.7 : 1,
+                            opacity: (status === 'loading' || isLocked) ? 0.7 : 1,
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em'
                         }}
                     >
-                        {status === 'loading' ? 'Verifying Credentials...' : (status === 'success' ? 'Access Granted' : 'Authenticate')}
+                        {isLocked ? `Locked (${remainingSeconds}s)` : (status === 'loading' ? 'Verifying Credentials...' : (status === 'success' ? 'Access Granted' : 'Authenticate'))}
                     </button>
                 </form>
 
